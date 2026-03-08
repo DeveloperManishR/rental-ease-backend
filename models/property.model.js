@@ -51,7 +51,7 @@ const propertySchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["review", "published", "rejected", "cancelled"],
+            enum: ["draft", "review", "published", "rejected", "cancelled"],
             default: "review",
         },
     },

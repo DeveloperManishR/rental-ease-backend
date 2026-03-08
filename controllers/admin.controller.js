@@ -24,6 +24,7 @@ export const getDashboardStats = async (req, res) => {
             ]);
 
         const propertyStats = {
+            draft: await Property.countDocuments({ status: "draft" }),
             review: await Property.countDocuments({ status: "review" }),
             published: await Property.countDocuments({ status: "published" }),
             rejected: await Property.countDocuments({ status: "rejected" }),
@@ -148,13 +149,13 @@ export const reviewProperty = async (req, res) => {
             );
         }
 
-        property.status = action === "approve" ? "published" : "cancelled";
+        property.status = action === "approve" ? "published" : "rejected";
         await property.save();
 
         const message =
             action === "approve"
                 ? "Property approved and published successfully"
-                : "Property rejected and moved to cancelled status";
+                : "Property has been rejected";
 
         return sucessResponse(res, HTTP_STATUS.OK, message, property);
     } catch (error) {

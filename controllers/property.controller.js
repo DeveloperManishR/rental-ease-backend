@@ -351,11 +351,11 @@ export const submitForReview = async (req, res) => {
             return errorResponse(res, HTTP_STATUS.FORBIDDEN, "You can only submit your own properties");
         }
 
-        if (!["rejected", "cancelled"].includes(property.status)) {
+        if (!["draft", "rejected", "cancelled"].includes(property.status)) {
             return errorResponse(
                 res,
                 HTTP_STATUS.BAD_REQUEST,
-                `Cannot submit property with status "${property.status}". Only rejected or cancelled properties can be submitted.`
+                `Cannot submit property with status "${property.status}". Only draft, rejected or cancelled properties can be submitted.`
             );
         }
 
