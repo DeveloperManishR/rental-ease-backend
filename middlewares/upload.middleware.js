@@ -92,7 +92,21 @@ export const uploadPropertyImages = multer({
   storage: multer.memoryStorage(),
   fileFilter: imageOnlyFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB per file
+    fileSize: 15 * 1024 * 1024, // 5MB per file
     files: 4,                   // max 4 images
+  },
+});
+
+/* ──────────────────────────────────────────────────────
+   Move-In Document Upload — memory storage + Cloudinary
+   Supports images, PDFs, and Word docs, max 10 files, 10MB each
+   ────────────────────────────────────────────────────── */
+
+export const uploadMoveInDocuments = multer({
+  storage: multer.memoryStorage(),
+  fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB per file
+    files: 10,                   // max 10 documents
   },
 });

@@ -11,7 +11,7 @@ import {
 import { hasAccess } from "../middlewares/auth.middleware.js";
 import { validate } from "../middlewares/validation.middleware.js";
 import { createMoveInSchema } from "../validations/moveIn.validation.js";
-import { upload } from "../middlewares/upload.middleware.js";
+import { uploadMoveInDocuments } from "../middlewares/upload.middleware.js";
 
 const router = express.Router();
 
@@ -19,7 +19,7 @@ const router = express.Router();
 router.post("/", hasAccess(["tenant"]), validate(createMoveInSchema), createMoveIn);
 router.get("/my", hasAccess(["tenant"]), getMyMoveIns);
 router.get("/:id", hasAccess(["tenant", "owner", "admin"]), getMoveInById);
-router.put("/:id/documents", hasAccess(["tenant"]), upload.array("documents", 10), uploadDocuments);
+router.put("/:id/documents", hasAccess(["tenant"]), uploadMoveInDocuments.array("documents", 10), uploadDocuments);
 router.put("/:id/agreement", hasAccess(["tenant"]), acceptAgreement);
 router.put("/:id/inventory", hasAccess(["tenant"]), updateInventory);
 

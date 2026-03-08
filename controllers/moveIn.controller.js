@@ -5,6 +5,7 @@ import {
     errorResponse,
     HTTP_STATUS,
 } from "../utils/response.js";
+import { uploadFileToCloudinary } from "../config/cloudinary.js";
 
 /* ======================================================
    Create Move-In (Tenant)
@@ -127,7 +128,7 @@ export const getMoveInById = async (req, res) => {
 };
 
 /* ======================================================
-   Upload Documents (Tenant)
+   Upload Documents (Tenant) – via Cloudinary
 ====================================================== */
 export const uploadDocuments = async (req, res) => {
     try {
@@ -141,21 +142,26 @@ export const uploadDocuments = async (req, res) => {
             return errorResponse(res, HTTP_STATUS.FORBIDDEN, "Access denied");
         }
 
-        // Expect files from multer
+        // Expect files from multer (memory storage)
         if (!req.files || req.files.length === 0) {
             return errorResponse(res, HTTP_STATUS.BAD_REQUEST, "No files uploaded");
         }
 
-        const newDocuments = req.files.map((file) => ({
-            name: file.originalname,
-            fileUrl: file.path.replace(/^public[\\/]/, ""),
-        }));
+        const newDocuments = [];
+        for (const file of req.files) {
+            const result = await uploadFileToCloudinary(file.buffer, "move_in_documents");
+            newDocuments.push({
+                name: file.originalname,
+                fileUrl: result.secure_url,
+            });
+        }
 
         moveIn.documents.push(...newDocuments);
         await moveIn.save();
 
         return sucessResponse(res, HTTP_STATUS.OK, "Documents uploaded successfully", moveIn);
     } catch (error) {
+        console.error("Upload Documents Error:", error);
         return errorResponse(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message);
     }
 };
