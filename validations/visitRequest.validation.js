@@ -6,7 +6,9 @@ export const createVisitRequestSchema = z.object({
 
         preferredDate: z
             .string({ required_error: "Preferred date is required" })
-            .datetime({ message: "Invalid date format" }),
+            .refine((value) => !Number.isNaN(new Date(value).getTime()), {
+                message: "Invalid date format",
+            }),
     }),
 });
 

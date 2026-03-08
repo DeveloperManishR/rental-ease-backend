@@ -51,8 +51,8 @@ const propertySchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["draft", "review", "published", "rejected"],
-            default: "draft",
+            enum: ["review", "published", "rejected", "cancelled"],
+            default: "review",
         },
     },
     { timestamps: true }

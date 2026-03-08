@@ -13,6 +13,22 @@ export const createVisitRequest = async (req, res) => {
     try {
         const { propertyId, preferredDate } = req.body;
 
+        const parsedPreferredDate = new Date(preferredDate);
+        if (Number.isNaN(parsedPreferredDate.getTime())) {
+            return errorResponse(res, HTTP_STATUS.BAD_REQUEST, "Invalid preferred date");
+        }
+
+        const preferredDay = new Date(
+            parsedPreferredDate.getFullYear(),
+            parsedPreferredDate.getMonth(),
+            parsedPreferredDate.getDate()
+        );
+        const today = new Date();
+        const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        if (preferredDay < todayDay) {
+            return errorResponse(res, HTTP_STATUS.BAD_REQUEST, "Preferred date cannot be in the past");
+        }
+
         // Check property exists and is published
         const property = await Property.findById(propertyId);
         if (!property) {
@@ -35,7 +51,7 @@ export const createVisitRequest = async (req, res) => {
         const visitRequest = await VisitRequest.create({
             tenantId: req.user._id,
             propertyId,
-            preferredDate,
+            preferredDate: parsedPreferredDate,
             status: "requested",
         });
 

@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+const isValidDateString = (value) => !Number.isNaN(new Date(value).getTime());
+
+const isTodayOrFuture = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+
+    const inputDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const today = new Date();
+    const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return inputDay >= todayDay;
+};
+
 export const createPropertySchema = z.object({
     body: z.object({
         title: z
@@ -33,7 +45,8 @@ export const createPropertySchema = z.object({
 
         availableFrom: z
             .string()
-            .datetime({ message: "Invalid date format" })
+            .refine(isValidDateString, { message: "Invalid date format" })
+            .refine(isTodayOrFuture, { message: "Available from date cannot be in the past" })
             .optional(),
     }),
 });
@@ -49,6 +62,10 @@ export const updatePropertySchema = z.object({
         amenities: z.array(z.string()).optional(),
         rules: z.array(z.string()).optional(),
         images: z.array(z.string()).optional(),
-        availableFrom: z.string().datetime().optional(),
+        availableFrom: z
+            .string()
+            .refine(isValidDateString, { message: "Invalid date format" })
+            .refine(isTodayOrFuture, { message: "Available from date cannot be in the past" })
+            .optional(),
     }),
 });

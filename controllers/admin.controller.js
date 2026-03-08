@@ -24,10 +24,10 @@ export const getDashboardStats = async (req, res) => {
             ]);
 
         const propertyStats = {
-            draft: await Property.countDocuments({ status: "draft" }),
             review: await Property.countDocuments({ status: "review" }),
             published: await Property.countDocuments({ status: "published" }),
             rejected: await Property.countDocuments({ status: "rejected" }),
+            cancelled: await Property.countDocuments({ status: "cancelled" }),
         };
 
         // Recent 5 properties pending review
@@ -104,7 +104,27 @@ export const getAllProperties = async (req, res) => {
 };
 
 /* ======================================================
-   Review Property (Admin) – Approve → published / Reject → draft
+   Get Single Property (Admin)
+====================================================== */
+export const getPropertyByIdForAdmin = async (req, res) => {
+    try {
+        const property = await Property.findById(req.params.id).populate(
+            "ownerId",
+            "name email phone"
+        );
+
+        if (!property) {
+            return errorResponse(res, HTTP_STATUS.NOT_FOUND, "Property not found");
+        }
+
+        return sucessResponse(res, HTTP_STATUS.OK, "Property fetched successfully", property);
+    } catch (error) {
+        return errorResponse(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, error.message);
+    }
+};
+
+/* ======================================================
+    Review Property (Admin) – Approve → published / Reject → cancelled
 ====================================================== */
 export const reviewProperty = async (req, res) => {
     try {
@@ -128,13 +148,13 @@ export const reviewProperty = async (req, res) => {
             );
         }
 
-        property.status = action === "approve" ? "published" : "rejected";
+        property.status = action === "approve" ? "published" : "cancelled";
         await property.save();
 
         const message =
             action === "approve"
                 ? "Property approved and published successfully"
-                : "Property rejected successfully";
+                : "Property rejected and moved to cancelled status";
 
         return sucessResponse(res, HTTP_STATUS.OK, message, property);
     } catch (error) {

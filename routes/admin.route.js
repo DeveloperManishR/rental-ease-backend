@@ -3,6 +3,7 @@ import {
     getDashboardStats,
     getAllUsers,
     getAllProperties,
+    getPropertyByIdForAdmin,
     reviewProperty,
 } from "../controllers/admin.controller.js";
 import { hasAccess } from "../middlewares/auth.middleware.js";
@@ -15,6 +16,7 @@ router.use(hasAccess(["admin"]));
 router.get("/dashboard", getDashboardStats);
 router.get("/users", getAllUsers);
 router.get("/properties", getAllProperties);
+router.get("/properties/:id", getPropertyByIdForAdmin);
 router.put("/properties/:id/review", reviewProperty);
 
 export default router;

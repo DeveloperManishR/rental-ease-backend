@@ -24,6 +24,17 @@ const getPublicId = (url) => {
     }
 };
 
+const isDateInPast = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+
+    const inputDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const today = new Date();
+    const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    return inputDay < todayDay;
+};
+
 /* ======================================================
    Create Property (Owner)
 ====================================================== */
@@ -33,6 +44,16 @@ export const createProperty = async (req, res) => {
             title, description, location, city,
             rent, deposit, amenities, rules, availableFrom,
         } = req.body;
+
+        if (availableFrom) {
+            const datePastResult = isDateInPast(availableFrom);
+            if (datePastResult === null) {
+                return errorResponse(res, HTTP_STATUS.BAD_REQUEST, "Invalid available from date");
+            }
+            if (datePastResult) {
+                return errorResponse(res, HTTP_STATUS.BAD_REQUEST, "Available from date cannot be in the past");
+            }
+        }
 
         // Upload images to Cloudinary
         const imageUrls = [];
@@ -46,6 +67,24 @@ export const createProperty = async (req, res) => {
             }
         }
 
+        // Accept image URLs passed directly in JSON body (e.g., owner provides links)
+        if (req.body.images !== undefined) {
+            const bodyImages = typeof req.body.images === "string"
+                ? JSON.parse(req.body.images || "[]")
+                : req.body.images || [];
+
+            if (!Array.isArray(bodyImages)) {
+                return errorResponse(res, HTTP_STATUS.BAD_REQUEST, "Images must be an array of URLs");
+            }
+
+            // Merge but enforce maximum 4 images
+            const combined = [...imageUrls, ...bodyImages];
+            if (combined.length > 4) {
+                return errorResponse(res, HTTP_STATUS.BAD_REQUEST, "Maximum 4 images allowed");
+            }
+            // trust body image URLs as-is
+            imageUrls.push(...bodyImages);
+        }
         // Parse arrays if they come as JSON strings from FormData
         const parsedAmenities = typeof amenities === "string" ? JSON.parse(amenities || "[]") : amenities || [];
         const parsedRules = typeof rules === "string" ? JSON.parse(rules || "[]") : rules || [];
@@ -62,7 +101,7 @@ export const createProperty = async (req, res) => {
             rules: parsedRules,
             images: imageUrls,
             availableFrom,
-            status: "draft",
+            status: "review",
         });
 
         return sucessResponse(res, HTTP_STATUS.CREATED, "Property created successfully", property);
@@ -168,35 +207,59 @@ export const updateProperty = async (req, res) => {
         // --- Handle images ---
         let finalImages = [...property.images]; // start with existing
 
-        // Parse existingImages from body (images the user chose to keep)
-        if (req.body.existingImages !== undefined) {
-            const kept = typeof req.body.existingImages === "string"
-                ? JSON.parse(req.body.existingImages || "[]")
-                : req.body.existingImages || [];
+        // If client sends full `images` array in body (JSON), use that as the target list
+        if (req.body.images !== undefined) {
+            const bodyImages = typeof req.body.images === "string"
+                ? JSON.parse(req.body.images || "[]")
+                : req.body.images || [];
 
-            // Delete removed images from Cloudinary
-            const removedImages = property.images.filter((url) => !kept.includes(url));
+            if (!Array.isArray(bodyImages)) {
+                return errorResponse(res, HTTP_STATUS.BAD_REQUEST, "Images must be an array of URLs");
+            }
+
+            if (bodyImages.length > 4) {
+                return errorResponse(res, HTTP_STATUS.BAD_REQUEST, "Maximum 4 images allowed");
+            }
+
+            // delete any removed Cloudinary-hosted images
+            const removedImages = property.images.filter((url) => !bodyImages.includes(url));
             for (const url of removedImages) {
                 const publicId = getPublicId(url);
                 if (publicId) await deleteFromCloudinary(publicId);
             }
 
-            finalImages = kept;
-        }
+            finalImages = bodyImages;
+        } else {
+            // Parse existingImages from body (images the user chose to keep)
+            if (req.body.existingImages !== undefined) {
+                const kept = typeof req.body.existingImages === "string"
+                    ? JSON.parse(req.body.existingImages || "[]")
+                    : req.body.existingImages || [];
 
-        // Upload new images
-        if (req.files && req.files.length > 0) {
-            const totalImages = finalImages.length + req.files.length;
-            if (totalImages > 4) {
-                return errorResponse(
-                    res,
-                    HTTP_STATUS.BAD_REQUEST,
-                    `Maximum 4 images allowed. You have ${finalImages.length} existing + ${req.files.length} new = ${totalImages}`
-                );
+                // Delete removed images from Cloudinary
+                const removedImages = property.images.filter((url) => !kept.includes(url));
+                for (const url of removedImages) {
+                    const publicId = getPublicId(url);
+                    if (publicId) await deleteFromCloudinary(publicId);
+                }
+
+                finalImages = kept;
             }
-            for (const file of req.files) {
-                const result = await uploadToCloudinary(file.buffer);
-                finalImages.push(result.secure_url);
+
+            // Upload new images (multipart files)
+            if (req.files && req.files.length > 0) {
+                const totalImages = finalImages.length + req.files.length;
+                if (totalImages > 4) {
+                    return errorResponse(
+                        res,
+                        HTTP_STATUS.BAD_REQUEST,
+                        `Maximum 4 images allowed. You have ${finalImages.length} existing + ${req.files.length} new = ${totalImages}`
+                    );
+                }
+                for (const file of req.files) {
+                    const result = await uploadToCloudinary(file.buffer);
+                    finalImages.push(result.secure_url);
+                }
             }
         }
 
@@ -216,6 +279,15 @@ export const updateProperty = async (req, res) => {
                     updateData[field] = typeof req.body[field] === "string"
                         ? JSON.parse(req.body[field] || "[]")
                         : req.body[field];
+                } else if (field === "availableFrom") {
+                    const datePastResult = isDateInPast(req.body[field]);
+                    if (datePastResult === null) {
+                        return errorResponse(res, HTTP_STATUS.BAD_REQUEST, "Invalid available from date");
+                    }
+                    if (datePastResult) {
+                        return errorResponse(res, HTTP_STATUS.BAD_REQUEST, "Available from date cannot be in the past");
+                    }
+                    updateData[field] = req.body[field];
                 } else {
                     updateData[field] = req.body[field];
                 }
@@ -279,11 +351,11 @@ export const submitForReview = async (req, res) => {
             return errorResponse(res, HTTP_STATUS.FORBIDDEN, "You can only submit your own properties");
         }
 
-        if (!["draft", "rejected"].includes(property.status)) {
+        if (!["rejected", "cancelled"].includes(property.status)) {
             return errorResponse(
                 res,
                 HTTP_STATUS.BAD_REQUEST,
-                `Cannot submit property with status "${property.status}". Only draft or rejected properties can be submitted.`
+                `Cannot submit property with status "${property.status}". Only rejected or cancelled properties can be submitted.`
             );
         }
 
