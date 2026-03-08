@@ -61,8 +61,8 @@ export const getAllUsers = async (req, res) => {
     try {
         const { page = 1, limit = 10, role } = req.query;
 
-        const query = {};
-        if (role) query.role = role;
+        const query = { role: { $ne: "admin" } };
+        if (role && role !== "admin") query.role = role;
 
         const options = {
             page: parseInt(page),
